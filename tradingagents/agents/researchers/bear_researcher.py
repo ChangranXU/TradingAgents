@@ -2,8 +2,11 @@ from langchain_core.messages import AIMessage
 import time
 import json
 
+from tradingagents.agents.governed_agents import govern_researcher
+
 
 def create_bear_researcher(llm, memory):
+    @govern_researcher
     def bear_node(state) -> dict:
         investment_debate_state = state["investment_debate_state"]
         history = investment_debate_state.get("history", "")

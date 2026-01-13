@@ -1,0 +1,79 @@
+# TradingAgents ArbiterOS Policy Configuration
+#
+# This file defines the governance policies for the TradingAgents framework.
+# Policies are applied by ArbiterOS to enforce execution constraints and
+# enable dynamic workflow routing.
+
+# Policy Checkers - Validate execution constraints
+checkers:
+  # Ensure all analysts complete before researchers begin
+  - name: analyst_completion
+    type: AnalystCompletionChecker
+    enabled: true
+    required_analysts:
+      - market
+      - social
+      - news
+      - fundamentals
+
+  # Ensure minimum debate rounds between bull/bear researchers
+  - name: minimum_debate_rounds
+    type: DebateRoundsChecker
+    enabled: true
+    min_rounds: 1
+
+  # Verify risk team provides sufficient analysis
+  - name: risk_verification
+    type: RiskAnalysisChecker
+    enabled: true
+    min_risk_assessments: 3
+
+# Policy Routers - Dynamic workflow routing
+routers:
+  # Route back to analysts if confidence is too low
+  - name: confidence_threshold
+    type: ConfidenceRouter
+    enabled: false  # Disabled by default - enable for strict confidence checks
+    threshold: 0.7
+    target: "Market Analyst"
+    confidence_key: confidence
+
+  # Escalate high-risk trades for additional review
+  - name: risk_override
+    type: RiskOverrideRouter
+    enabled: false  # Disabled by default - enable for risk-sensitive deployments
+    max_risk_score: 0.8
+    target: "Safe Analyst"
+    risk_patterns:
+      - "high risk"
+      - "extremely volatile"
+      - "significant downside"
+      - "major concern"
+      - "strongly advise against"
+
+  # Adjust strategy based on market volatility
+  - name: volatility_adjustment
+    type: VolatilityRouter
+    enabled: false  # Disabled by default - enable for volatile market protection
+    target: "Safe Analyst"
+    volatility_indicators:
+      - "extreme volatility"
+      - "market crash"
+      - "black swan"
+      - "circuit breaker"
+      - "flash crash"
+      - "panic selling"
+      - "market turbulence"
+    atr_threshold: 5.0
+
+# Checkpoint Configuration
+checkpointing:
+  enabled: true
+  path: "./checkpoints/trading.db"
+  auto_save: true
+
+# Logging Configuration
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  governance_events: true

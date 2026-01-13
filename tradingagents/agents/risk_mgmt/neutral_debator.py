@@ -1,8 +1,11 @@
 import time
 import json
 
+from tradingagents.agents.governed_agents import govern_risk_debater
+
 
 def create_neutral_debator(llm):
+    @govern_risk_debater
     def neutral_node(state) -> dict:
         risk_debate_state = state["risk_debate_state"]
         history = risk_debate_state.get("history", "")

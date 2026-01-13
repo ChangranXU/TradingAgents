@@ -19,7 +19,21 @@ from .managers.risk_manager import create_risk_manager
 
 from .trader.trader import create_trader
 
+# ArbiterOS governance exports
+from .governed_agents import (
+    arbiter_os,
+    get_arbiter_os,
+    reset_arbiter_os,
+    govern_analyst,
+    govern_researcher,
+    govern_research_manager,
+    govern_trader,
+    govern_risk_debater,
+    govern_risk_manager,
+)
+
 __all__ = [
+    # Original exports
     "FinancialSituationMemory",
     "AgentState",
     "create_msg_delete",
@@ -37,4 +51,14 @@ __all__ = [
     "create_safe_debator",
     "create_social_media_analyst",
     "create_trader",
+    # ArbiterOS governance exports
+    "arbiter_os",
+    "get_arbiter_os",
+    "reset_arbiter_os",
+    "govern_analyst",
+    "govern_researcher",
+    "govern_research_manager",
+    "govern_trader",
+    "govern_risk_debater",
+    "govern_risk_manager",
 ]

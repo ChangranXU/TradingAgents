@@ -204,6 +204,172 @@ print(decision)
 
 You can view the full list of configurations in `tradingagents/default_config.py`.
 
+## ArbiterOS Governance
+
+TradingAgents is integrated with [ArbiterOS](https://github.com/wintertee/ArbiterOS-alpha), a policy-driven governance layer for LangGraph. This integration provides:
+
+- **Policy-Based Validation**: Enforce execution constraints before and after instruction execution
+- **Dynamic Routing**: Route execution flow based on policy conditions (e.g., confidence thresholds)
+- **Execution History**: Track all instruction executions with timestamps and I/O
+- **Checkpoint Persistence**: Save and resume workflow state using LangGraph's SqliteSaver
+
+### Governance Features
+
+#### 1. Policy Checkers
+
+Policy checkers enforce workflow constraints:
+
+```python
+from tradingagents.policies import (
+    AnalystCompletionChecker,
+    DebateRoundsChecker,
+    RiskAnalysisChecker,
+)
+from tradingagents.agents.governed_agents import get_arbiter_os
+
+arbiter_os = get_arbiter_os()
+
+# Ensure all analysts complete before debate
+arbiter_os.add_policy_checker(
+    AnalystCompletionChecker(
+        name="analyst_completion",
+        required_analysts={"market", "news", "fundamentals"}
+    )
+)
+
+# Enforce minimum debate rounds
+arbiter_os.add_policy_checker(
+    DebateRoundsChecker(name="minimum_debate", min_rounds=2)
+)
+
+# Verify risk team consensus
+arbiter_os.add_policy_checker(
+    RiskAnalysisChecker(name="risk_verification", min_risk_assessments=3)
+)
+```
+
+#### 2. Policy Routers
+
+Policy routers enable dynamic workflow routing:
+
+```python
+from tradingagents.policies import ConfidenceRouter, RiskOverrideRouter
+
+# Route back to analysts if confidence is too low
+arbiter_os.add_policy_router(
+    ConfidenceRouter(
+        name="low_confidence_review",
+        threshold=0.7,
+        target="Market Analyst"
+    )
+)
+
+# Escalate high-risk trades
+arbiter_os.add_policy_router(
+    RiskOverrideRouter(
+        name="high_risk_escalation",
+        max_risk_score=0.8,
+        target="Safe Analyst"
+    )
+)
+```
+
+#### 3. Checkpoint Persistence
+
+Save and resume workflow state:
+
+```python
+from tradingagents.graph.trading_graph import TradingAgentsGraph
+
+# Initialize with checkpointing
+ta = TradingAgentsGraph(
+    debug=True,
+    config=config,
+    checkpoint_path="./checkpoints/trading.db"
+)
+
+# Run analysis with thread tracking
+final_state, decision = ta.propagate(
+    "NVDA",
+    "2024-05-10",
+    thread_id="my-analysis-123"
+)
+
+# Resume from checkpoint
+final_state, decision = ta.propagate(
+    "NVDA",
+    "2024-05-10",
+    thread_id="my-analysis-123",
+    resume=True
+)
+
+# List checkpoints
+checkpoints = ta.list_checkpoints("my-analysis-123")
+
+# Get saved state
+saved_state = ta.get_state("my-analysis-123")
+
+# View execution history
+ta.print_execution_history()
+```
+
+### Running the Governance Demo
+
+```bash
+# Run the comprehensive governance demo
+python -m examples.governed_trading_demo
+
+# With custom parameters
+python -m examples.governed_trading_demo --ticker AAPL --date 2024-06-15
+
+# Resume from checkpoint
+python -m examples.governed_trading_demo --resume --thread-id <uuid>
+
+# List checkpoints
+python -m examples.governed_trading_demo --list-checkpoints <uuid>
+```
+
+### Instruction Type Mappings
+
+Each agent role is mapped to an ArbiterOS instruction type:
+
+| Agent Role | Instruction Type | Purpose |
+|------------|------------------|---------|
+| Analysts (Market, News, Social, Fundamentals) | `GENERATE` | Generate analysis reports |
+| Bull/Bear Researchers | `REFLECT` | Critique and debate |
+| Research Manager | `EVALUATE_PROGRESS` | Synthesize debate outcomes |
+| Trader | `DECOMPOSE` | Break into action plan |
+| Risk Debaters (Risky, Safe, Neutral) | `NEGOTIATE` | Multi-turn risk dialogue |
+| Risk Manager | `VERIFY` | Validate final decision |
+
+### Policy Configuration File
+
+Configure policies via `policies.yaml`:
+
+```yaml
+checkers:
+  - name: analyst_completion
+    type: AnalystCompletionChecker
+    enabled: true
+    required_analysts: [market, social, news, fundamentals]
+
+  - name: minimum_debate_rounds
+    type: DebateRoundsChecker
+    enabled: true
+    min_rounds: 1
+
+routers:
+  - name: confidence_threshold
+    type: ConfidenceRouter
+    enabled: false
+    threshold: 0.7
+    target: "Market Analyst"
+
+checkpointing:
+  enabled: true
+  path: "./checkpoints/trading.db"
+```
+
 ## Contributing
 
 We welcome contributions from the community! Whether it's fixing a bug, improving documentation, or suggesting a new feature, your input helps make this project better. If you are interested in this line of research, please consider joining our open-source financial AI research community [Tauric Research](https://tauric.ai/).

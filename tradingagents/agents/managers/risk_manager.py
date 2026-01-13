@@ -1,8 +1,11 @@
 import time
 import json
 
+from tradingagents.agents.governed_agents import govern_risk_manager
+
 
 def create_risk_manager(llm, memory):
+    @govern_risk_manager
     def risk_manager_node(state) -> dict:
 
         company_name = state["company_of_interest"]

@@ -1,12 +1,14 @@
 # TradingAgents/graph/setup.py
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph, START
 from langgraph.prebuilt import ToolNode
+from langgraph.checkpoint.base import BaseCheckpointSaver
 
 from tradingagents.agents import *
 from tradingagents.agents.utils.agent_states import AgentState
+from tradingagents.agents.governed_agents import get_arbiter_os
 
 from .conditional_logic import ConditionalLogic
 
@@ -38,9 +40,11 @@ class GraphSetup:
         self.conditional_logic = conditional_logic
 
     def setup_graph(
-        self, selected_analysts=["market", "social", "news", "fundamentals"]
+        self,
+        selected_analysts=["market", "social", "news", "fundamentals"],
+        checkpointer: Optional[BaseCheckpointSaver] = None,
     ):
-        """Set up and compile the agent workflow graph.
+        """Set up and compile the agent workflow graph with ArbiterOS governance.
 
         Args:
             selected_analysts (list): List of analyst types to include. Options are:
@@ -48,6 +52,8 @@ class GraphSetup:
                 - "social": Social media analyst
                 - "news": News analyst
                 - "fundamentals": Fundamentals analyst
+            checkpointer: Optional LangGraph checkpointer for state persistence.
+                If provided, enables checkpoint save/resume functionality.
         """
         if len(selected_analysts) == 0:
             raise ValueError("Trading Agents Graph Setup Error: no analysts selected!")
@@ -198,5 +204,11 @@ class GraphSetup:
 
         workflow.add_edge("Risk Judge", END)
 
-        # Compile and return
-        return workflow.compile()
+        # Compile with optional checkpointer
+        compiled_graph = workflow.compile(checkpointer=checkpointer)
+
+        # Register with ArbiterOS for governance tracking
+        arbiter_os = get_arbiter_os()
+        arbiter_os.register_compiled_graph(compiled_graph)
+
+        return compiled_graph

@@ -2,8 +2,11 @@ import functools
 import time
 import json
 
+from tradingagents.agents.governed_agents import govern_trader
+
 
 def create_trader(llm, memory):
+    @govern_trader
     def trader_node(state, name):
         company_name = state["company_of_interest"]
         investment_plan = state["investment_plan"]

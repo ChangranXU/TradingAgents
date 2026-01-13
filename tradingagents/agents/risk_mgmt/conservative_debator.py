@@ -2,8 +2,11 @@ from langchain_core.messages import AIMessage
 import time
 import json
 
+from tradingagents.agents.governed_agents import govern_risk_debater
+
 
 def create_safe_debator(llm):
+    @govern_risk_debater
     def safe_node(state) -> dict:
         risk_debate_state = state["risk_debate_state"]
         history = risk_debate_state.get("history", "")
