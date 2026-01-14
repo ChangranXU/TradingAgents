@@ -2,6 +2,9 @@
 
 from langchain_openai import ChatOpenAI
 
+from tradingagents.llm_io import invoke_validated_json
+from tradingagents.llm_schemas import SignalExtractionOutput
+
 
 class SignalProcessor:
     """Processes trading signals to extract actionable decisions."""
@@ -28,4 +31,7 @@ class SignalProcessor:
             ("human", full_signal),
         ]
 
-        return self.quick_thinking_llm.invoke(messages).content
+        parsed = invoke_validated_json(
+            self.quick_thinking_llm, messages, SignalExtractionOutput
+        ).parsed
+        return parsed.decision.value

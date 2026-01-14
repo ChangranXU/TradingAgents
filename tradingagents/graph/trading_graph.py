@@ -240,7 +240,10 @@ class TradingAgentsGraph:
         )
 
         # Configure checkpoint tracking
-        config = {"configurable": {"thread_id": thread_id}}
+        config = {
+            "configurable": {"thread_id": thread_id},
+            "recursion_limit": self.config.get("recursion_limit", 100),
+        }
 
         # Check if resuming from checkpoint
         if resume:

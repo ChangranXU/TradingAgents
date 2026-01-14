@@ -3,6 +3,8 @@ import time
 import json
 
 from tradingagents.agents.governed_agents import govern_researcher
+from tradingagents.llm_io import invoke_validated_json
+from tradingagents.llm_schemas import DebateArgumentOutput
 
 
 def create_bull_researcher(llm, memory):
@@ -45,9 +47,8 @@ Reflections from similar situations and lessons learned: {past_memory_str}
 Use this information to deliver a compelling bull argument, refute the bear's concerns, and engage in a dynamic debate that demonstrates the strengths of the bull position. You must also address reflections and learn from lessons and mistakes you made in the past.
 """
 
-        response = llm.invoke(prompt)
-
-        argument = f"Bull Analyst: {response.content}"
+        parsed = invoke_validated_json(llm, prompt, DebateArgumentOutput).parsed
+        argument = f"Bull Analyst: {parsed.argument}"
 
         new_investment_debate_state = {
             "history": history + "\n" + argument,
