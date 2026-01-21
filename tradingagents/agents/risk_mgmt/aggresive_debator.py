@@ -1,13 +1,10 @@
 import time
 import json
-
-from tradingagents.agents.governed_agents import govern_risk_debater
-from tradingagents.llm_io import invoke_validated_json
-from tradingagents.llm_schemas import DebateArgumentOutput
+from tradingagents.agents.governed_agents import govern_risky_debator
 
 
 def create_risky_debator(llm):
-    @govern_risk_debater
+    @govern_risky_debator
     def risky_node(state) -> dict:
         risk_debate_state = state["risk_debate_state"]
         history = risk_debate_state.get("history", "")
@@ -37,8 +34,9 @@ Here is the current conversation history: {history} Here are the last arguments 
 
 Engage actively by addressing any specific concerns raised, refuting the weaknesses in their logic, and asserting the benefits of risk-taking to outpace market norms. Maintain a focus on debating and persuading, not just presenting data. Challenge each counterpoint to underscore why a high-risk approach is optimal. Output conversationally as if you are speaking without any special formatting."""
 
-        parsed = invoke_validated_json(llm, prompt, DebateArgumentOutput).parsed
-        argument = f"Risky Analyst: {parsed.argument}"
+        response = llm.invoke(prompt)
+
+        argument = f"Risky Analyst: {response.content}"
 
         new_risk_debate_state = {
             "history": history + "\n" + argument,

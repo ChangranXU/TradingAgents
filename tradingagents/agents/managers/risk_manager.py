@@ -1,9 +1,7 @@
 import time
 import json
-
 from tradingagents.agents.governed_agents import govern_risk_manager
-from tradingagents.llm_io import invoke_validated_json
-from tradingagents.llm_schemas import RiskManagerOutput
+from llm_schemas import RiskManagerOutput
 
 
 def create_risk_manager(llm, memory):
@@ -48,11 +46,10 @@ Deliverables:
 
 Focus on actionable insights and continuous improvement. Build on past lessons, critically evaluate all perspectives, and ensure each decision advances better outcomes."""
 
-        parsed = invoke_validated_json(llm, prompt, RiskManagerOutput).parsed
-        decision_text = parsed.render_decision_text()
+        response = llm.with_structured_output(RiskManagerOutput).invoke(prompt)
 
         new_risk_debate_state = {
-            "judge_decision": decision_text,
+            "judge_decision": response.content,
             "history": risk_debate_state["history"],
             "risky_history": risk_debate_state["risky_history"],
             "safe_history": risk_debate_state["safe_history"],
@@ -66,7 +63,7 @@ Focus on actionable insights and continuous improvement. Build on past lessons, 
 
         return {
             "risk_debate_state": new_risk_debate_state,
-            "final_trade_decision": decision_text,
+            "final_trade_decision": response.content,
         }
 
     return risk_manager_node

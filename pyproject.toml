@@ -6,7 +6,6 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "akshare>=1.16.98",
-    "arbiteros-alpha",
     "backtrader>=1.9.78.123",
     "chainlit>=2.5.5",
     "chromadb>=1.0.12",
@@ -34,6 +33,3 @@ dependencies = [
     "typing-extensions>=4.14.0",
     "yfinance>=0.2.63",
 ]
-
-[tool.uv.sources]
-arbiteros-alpha = { path = "../..", editable = true }

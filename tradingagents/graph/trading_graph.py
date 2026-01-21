@@ -1,23 +1,16 @@
 # TradingAgents/graph/trading_graph.py
 
 import os
-import uuid
 from pathlib import Path
 import json
 from datetime import date
-from typing import Dict, Any, Tuple, List, Optional, Iterator
+from typing import Dict, Any, Tuple, List, Optional
 
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from langgraph.prebuilt import ToolNode
-try:
-    from langgraph.checkpoint.sqlite import SqliteSaver
-except ImportError:
-    SqliteSaver = None
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.checkpoint.base import BaseCheckpointSaver
 
 from tradingagents.agents import *
 from tradingagents.default_config import DEFAULT_CONFIG
@@ -27,7 +20,6 @@ from tradingagents.agents.utils.agent_states import (
     InvestDebateState,
     RiskDebateState,
 )
-from tradingagents.agents.governed_agents import get_arbiter_os
 from tradingagents.dataflows.config import set_config
 
 # Import the new abstract tool methods from agent_utils
@@ -52,41 +44,23 @@ from .signal_processing import SignalProcessor
 
 
 class TradingAgentsGraph:
-    """Main class that orchestrates the trading agents framework with ArbiterOS governance.
-
-    This class provides a governance layer around the TradingAgents multi-agent
-    trading framework, enabling policy-based validation, execution history tracking,
-    and LangGraph checkpoint persistence for workflow state.
-
-    Attributes:
-        checkpointer: The LangGraph checkpointer for state persistence.
-        arbiter_os: Reference to the ArbiterOS governance instance.
-    """
+    """Main class that orchestrates the trading agents framework."""
 
     def __init__(
         self,
         selected_analysts=["market", "social", "news", "fundamentals"],
         debug=False,
         config: Dict[str, Any] = None,
-        checkpoint_path: Optional[str] = None,
-        checkpointer: Optional[BaseCheckpointSaver] = None,
     ):
-        """Initialize the trading agents graph with ArbiterOS governance.
+        """Initialize the trading agents graph and components.
 
         Args:
-            selected_analysts: List of analyst types to include.
-                Options: "market", "social", "news", "fundamentals"
-            debug: Whether to run in debug mode with verbose tracing.
-            config: Configuration dictionary. If None, uses default config.
-            checkpoint_path: Path to SQLite database for checkpointing.
-                Defaults to "./checkpoints/trading.db" if not provided.
-                Ignored if checkpointer is provided.
-            checkpointer: Optional custom LangGraph checkpointer.
-                If provided, takes precedence over checkpoint_path.
+            selected_analysts: List of analyst types to include
+            debug: Whether to run in debug mode
+            config: Configuration dictionary. If None, uses default config
         """
         self.debug = debug
         self.config = config or DEFAULT_CONFIG
-        self.selected_analysts = selected_analysts
 
         # Update the interface's config
         set_config(self.config)
@@ -96,26 +70,6 @@ class TradingAgentsGraph:
             os.path.join(self.config["project_dir"], "dataflows/data_cache"),
             exist_ok=True,
         )
-
-        # Initialize checkpointer for state persistence
-        if checkpointer is not None:
-            self.checkpointer = checkpointer
-        elif checkpoint_path is None:
-            # Use in-memory checkpointer when no path specified
-            self.checkpointer = MemorySaver()
-        else:
-            # Use SQLite checkpointer if available
-            if SqliteSaver is None:
-                raise ImportError(
-                    "SqliteSaver requires 'langgraph-checkpoint-sqlite' package. "
-                    "Install it with: pip install langgraph-checkpoint-sqlite"
-                )
-            checkpoint_dir = Path(checkpoint_path).parent
-            checkpoint_dir.mkdir(parents=True, exist_ok=True)
-            self.checkpointer = SqliteSaver.from_conn_string(checkpoint_path)
-
-        # Get reference to ArbiterOS instance
-        self.arbiter_os = get_arbiter_os()
 
         # Initialize LLMs
         if self.config["llm_provider"].lower() == "openai" or self.config["llm_provider"] == "ollama" or self.config["llm_provider"] == "openrouter":
@@ -163,10 +117,8 @@ class TradingAgentsGraph:
         self.ticker = None
         self.log_states_dict = {}  # date to full state dict
 
-        # Set up the graph with checkpointer
-        self.graph = self.graph_setup.setup_graph(
-            selected_analysts, checkpointer=self.checkpointer
-        )
+        # Set up the graph
+        self.graph = self.graph_setup.setup_graph(selected_analysts)
 
     def _create_tool_nodes(self) -> Dict[str, ToolNode]:
         """Create tool nodes for different data sources using abstract methods."""
@@ -205,64 +157,31 @@ class TradingAgentsGraph:
             ),
         }
 
-    def propagate(
-        self,
-        company_name: str,
-        trade_date: str,
-        thread_id: Optional[str] = None,
-        resume: bool = False,
-    ) -> Tuple[Dict[str, Any], str]:
-        """Run the trading agents graph for a company on a specific date.
+    def propagate(self, company_name, trade_date):
+        """Run the trading agents graph for a company on a specific date."""
 
-        Args:
-            company_name: The ticker symbol or company name to analyze.
-            trade_date: The date for which to make trading decisions.
-            thread_id: Optional thread ID for checkpoint tracking.
-                If not provided, a new UUID will be generated.
-            resume: If True, attempts to resume from the last checkpoint
-                for the given thread_id. If False, starts fresh.
-
-        Returns:
-            A tuple of (final_state, processed_signal) where:
-                - final_state: The complete workflow state after execution.
-                - processed_signal: The extracted trading decision (BUY/SELL/HOLD).
-        """
         self.ticker = company_name
-
-        # Generate or use provided thread_id
-        if thread_id is None:
-            thread_id = str(uuid.uuid4())
-        self.current_thread_id = thread_id
 
         # Initialize state
         init_agent_state = self.propagator.create_initial_state(
             company_name, trade_date
         )
-
-        # Configure checkpoint tracking
-        config = {
-            "configurable": {"thread_id": thread_id},
-            "recursion_limit": self.config.get("recursion_limit", 100),
-        }
-
-        # Check if resuming from checkpoint
-        if resume:
-            saved_state = self.get_state(thread_id)
-            if saved_state:
-                init_agent_state = saved_state
+        args = self.propagator.get_graph_args()
 
         if self.debug:
             # Debug mode with tracing
             trace = []
-            for chunk in self.graph.stream(init_agent_state, config=config, stream_mode="values"):
-                if "messages" in chunk and len(chunk["messages"]) > 0:
+            for chunk in self.graph.stream(init_agent_state, **args):
+                if len(chunk["messages"]) == 0:
+                    pass
+                else:
                     chunk["messages"][-1].pretty_print()
-                trace.append(chunk)
+                    trace.append(chunk)
 
-            final_state = trace[-1] if trace else init_agent_state
+            final_state = trace[-1]
         else:
             # Standard mode without tracing
-            final_state = self.graph.invoke(init_agent_state, config=config)
+            final_state = self.graph.invoke(init_agent_state, **args)
 
         # Store current state for reflection
         self.curr_state = final_state
@@ -336,82 +255,3 @@ class TradingAgentsGraph:
     def process_signal(self, full_signal):
         """Process a signal to extract the core decision."""
         return self.signal_processor.process_signal(full_signal)
-
-    # ==================== Checkpoint Management ====================
-
-    def get_state(self, thread_id: str) -> Optional[Dict[str, Any]]:
-        """Retrieve the saved state for a given thread_id.
-
-        Args:
-            thread_id: The thread identifier for the checkpoint.
-
-        Returns:
-            The saved state dictionary, or None if no checkpoint exists.
-        """
-        config = {"configurable": {"thread_id": thread_id}}
-        try:
-            state_snapshot = self.graph.get_state(config)
-            if state_snapshot and state_snapshot.values:
-                return state_snapshot.values
-        except Exception:
-            pass
-        return None
-
-    def update_state(
-        self,
-        thread_id: str,
-        values: Dict[str, Any],
-        as_node: Optional[str] = None,
-    ) -> None:
-        """Update the saved state for a given thread_id.
-
-        This allows manual intervention in the workflow state, useful for
-        correcting errors or adjusting trading parameters mid-execution.
-
-        Args:
-            thread_id: The thread identifier for the checkpoint.
-            values: Dictionary of state values to update.
-            as_node: Optional node name to attribute the update to.
-        """
-        config = {"configurable": {"thread_id": thread_id}}
-        self.graph.update_state(config, values, as_node=as_node)
-
-    def list_checkpoints(self, thread_id: str) -> List[Dict[str, Any]]:
-        """List all checkpoints for a given thread_id.
-
-        Args:
-            thread_id: The thread identifier to list checkpoints for.
-
-        Returns:
-            List of checkpoint metadata dictionaries, each containing:
-                - checkpoint_id: Unique checkpoint identifier
-                - timestamp: When the checkpoint was created
-                - step: The step number in the workflow
-        """
-        config = {"configurable": {"thread_id": thread_id}}
-        checkpoints = []
-        try:
-            for checkpoint in self.graph.get_state_history(config):
-                checkpoints.append({
-                    "checkpoint_id": checkpoint.config.get("configurable", {}).get(
-                        "checkpoint_id"
-                    ),
-                    "timestamp": checkpoint.metadata.get("created_at") if checkpoint.metadata else None,
-                    "step": checkpoint.metadata.get("step") if checkpoint.metadata else None,
-                    "next_nodes": list(checkpoint.next) if checkpoint.next else [],
-                })
-        except Exception:
-            pass
-        return checkpoints
-
-    def get_execution_history(self) -> "History":
-        """Get the ArbiterOS execution history for governance tracking.
-
-        Returns:
-            The History object containing all tracked instruction executions.
-        """
-        return self.arbiter_os.history
-
-    def print_execution_history(self) -> None:
-        """Pretty-print the ArbiterOS execution history."""
-        self.arbiter_os.history.pprint()

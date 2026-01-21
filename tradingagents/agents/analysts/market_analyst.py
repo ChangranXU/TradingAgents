@@ -3,12 +3,12 @@ import time
 import json
 from tradingagents.agents.utils.agent_utils import get_stock_data, get_indicators
 from tradingagents.dataflows.config import get_config
-from tradingagents.agents.governed_agents import govern_analyst
+from tradingagents.agents.governed_agents import govern_market_analyst
 
 
 def create_market_analyst(llm):
 
-    @govern_analyst
+    @govern_market_analyst
     def market_analyst_node(state):
         current_date = state["trade_date"]
         ticker = state["company_of_interest"]

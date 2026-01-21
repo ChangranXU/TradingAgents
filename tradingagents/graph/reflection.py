@@ -3,9 +3,6 @@
 from typing import Dict, Any
 from langchain_openai import ChatOpenAI
 
-from tradingagents.llm_io import invoke_validated_json
-from tradingagents.llm_schemas import ReflectionOutput
-
 
 class Reflector:
     """Handles reflection on decisions and updating memory."""
@@ -70,10 +67,8 @@ Adhere strictly to these instructions, and ensure your output is detailed, accur
             ),
         ]
 
-        parsed = invoke_validated_json(
-            self.quick_thinking_llm, messages, ReflectionOutput
-        ).parsed
-        return parsed.render_reflection_text()
+        result = self.quick_thinking_llm.invoke(messages).content
+        return result
 
     def reflect_bull_researcher(self, current_state, returns_losses, bull_memory):
         """Reflect on bull researcher's analysis and update memory."""

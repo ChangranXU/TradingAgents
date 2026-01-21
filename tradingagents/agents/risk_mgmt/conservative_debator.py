@@ -1,14 +1,11 @@
 from langchain_core.messages import AIMessage
 import time
 import json
-
-from tradingagents.agents.governed_agents import govern_risk_debater
-from tradingagents.llm_io import invoke_validated_json
-from tradingagents.llm_schemas import DebateArgumentOutput
+from tradingagents.agents.governed_agents import govern_safe_debator
 
 
 def create_safe_debator(llm):
-    @govern_risk_debater
+    @govern_safe_debator
     def safe_node(state) -> dict:
         risk_debate_state = state["risk_debate_state"]
         history = risk_debate_state.get("history", "")
@@ -38,8 +35,9 @@ Here is the current conversation history: {history} Here is the last response fr
 
 Engage by questioning their optimism and emphasizing the potential downsides they may have overlooked. Address each of their counterpoints to showcase why a conservative stance is ultimately the safest path for the firm's assets. Focus on debating and critiquing their arguments to demonstrate the strength of a low-risk strategy over their approaches. Output conversationally as if you are speaking without any special formatting."""
 
-        parsed = invoke_validated_json(llm, prompt, DebateArgumentOutput).parsed
-        argument = f"Safe Analyst: {parsed.argument}"
+        response = llm.invoke(prompt)
+
+        argument = f"Safe Analyst: {response.content}"
 
         new_risk_debate_state = {
             "history": history + "\n" + argument,

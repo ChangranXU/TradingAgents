@@ -1,9 +1,7 @@
 import time
 import json
-
 from tradingagents.agents.governed_agents import govern_research_manager
-from tradingagents.llm_io import invoke_validated_json
-from tradingagents.llm_schemas import ResearchManagerOutput
+from llm_schemas import ResearchManagerOutput
 
 
 def create_research_manager(llm, memory):
@@ -41,21 +39,20 @@ Here are your past reflections on mistakes:
 Here is the debate:
 Debate History:
 {history}"""
-        parsed = invoke_validated_json(llm, prompt, ResearchManagerOutput).parsed
-        plan_text = parsed.render_plan_text()
+        response = llm.with_structured_output(ResearchManagerOutput).invoke(prompt)
 
         new_investment_debate_state = {
-            "judge_decision": plan_text,
+            "judge_decision": response.content,
             "history": investment_debate_state.get("history", ""),
             "bear_history": investment_debate_state.get("bear_history", ""),
             "bull_history": investment_debate_state.get("bull_history", ""),
-            "current_response": plan_text,
+            "current_response": response.content,
             "count": investment_debate_state["count"],
         }
 
         return {
             "investment_debate_state": new_investment_debate_state,
-            "investment_plan": plan_text,
+            "investment_plan": response.content,
         }
 
     return research_manager_node

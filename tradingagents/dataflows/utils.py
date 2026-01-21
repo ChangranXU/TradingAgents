@@ -3,6 +3,7 @@ import json
 import pandas as pd
 from datetime import date, timedelta, datetime
 from typing import Annotated
+from tradingagents.agents.governed_agents import govern_method_decorator
 
 SavePathType = Annotated[str, "File path to save data. If None, data is not saved."]
 
@@ -17,6 +18,7 @@ def get_current_date():
 
 
 def decorate_all_methods(decorator):
+    @govern_method_decorator
     def class_decorator(cls):
         for attr_name, attr_value in cls.__dict__.items():
             if callable(attr_value):

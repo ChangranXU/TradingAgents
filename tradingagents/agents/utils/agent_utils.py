@@ -19,8 +19,10 @@ from tradingagents.agents.utils.news_data_tools import (
     get_insider_transactions,
     get_global_news
 )
+from tradingagents.agents.governed_agents import govern_msg_delete
 
 def create_msg_delete():
+    @govern_msg_delete
     def delete_messages(state):
         """Clear messages and add placeholder for Anthropic compatibility"""
         messages = state["messages"]

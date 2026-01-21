@@ -1,11 +1,8 @@
 import functools
 import time
 import json
-
-from langchain_core.messages import AIMessage
 from tradingagents.agents.governed_agents import govern_trader
-from tradingagents.llm_io import invoke_validated_json
-from tradingagents.llm_schemas import TraderOutput
+from llm_schemas import TraderDecisionOutput
 
 
 def create_trader(llm, memory):
@@ -41,12 +38,10 @@ def create_trader(llm, memory):
             context,
         ]
 
-        parsed = invoke_validated_json(llm, messages, TraderOutput).parsed
-        trader_text = parsed.render_trader_text()
-        result = AIMessage(content=trader_text)
+        result = llm.with_structured_output(TraderDecisionOutput).invoke(messages)
 
         return {
-            "messages": [result],
+            "messages": [result.to_message()],
             "trader_investment_plan": result.content,
             "sender": name,
         }

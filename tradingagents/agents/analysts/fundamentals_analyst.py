@@ -3,11 +3,11 @@ import time
 import json
 from tradingagents.agents.utils.agent_utils import get_fundamentals, get_balance_sheet, get_cashflow, get_income_statement, get_insider_sentiment, get_insider_transactions
 from tradingagents.dataflows.config import get_config
-from tradingagents.agents.governed_agents import govern_analyst
+from tradingagents.agents.governed_agents import govern_fundamentals_analyst
 
 
 def create_fundamentals_analyst(llm):
-    @govern_analyst
+    @govern_fundamentals_analyst
     def fundamentals_analyst_node(state):
         current_date = state["trade_date"]
         ticker = state["company_of_interest"]

@@ -1,14 +1,12 @@
 from langchain_core.messages import AIMessage
 import time
 import json
-
-from tradingagents.agents.governed_agents import govern_researcher
-from tradingagents.llm_io import invoke_validated_json
-from tradingagents.llm_schemas import DebateArgumentOutput
+from tradingagents.agents.governed_agents import govern_bull_researcher
+from llm_schemas import BullResearcherOutput
 
 
 def create_bull_researcher(llm, memory):
-    @govern_researcher
+    @govern_bull_researcher
     def bull_node(state) -> dict:
         investment_debate_state = state["investment_debate_state"]
         history = investment_debate_state.get("history", "")
@@ -47,8 +45,9 @@ Reflections from similar situations and lessons learned: {past_memory_str}
 Use this information to deliver a compelling bull argument, refute the bear's concerns, and engage in a dynamic debate that demonstrates the strengths of the bull position. You must also address reflections and learn from lessons and mistakes you made in the past.
 """
 
-        parsed = invoke_validated_json(llm, prompt, DebateArgumentOutput).parsed
-        argument = f"Bull Analyst: {parsed.argument}"
+        response = llm.with_structured_output(BullResearcherOutput).invoke(prompt)
+
+        argument = f"Bull Analyst: {response.content}"
 
         new_investment_debate_state = {
             "history": history + "\n" + argument,

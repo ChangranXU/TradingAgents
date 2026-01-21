@@ -1,6 +1,5 @@
 from typing import Optional
 import datetime
-import uuid
 import typer
 from pathlib import Path
 from functools import wraps
@@ -27,12 +26,6 @@ from rich.rule import Rule
 
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 from tradingagents.default_config import DEFAULT_CONFIG
-from tradingagents.agents.governed_agents import get_arbiter_os
-from tradingagents.policies import (
-    AnalystCompletionChecker,
-    DebateRoundsChecker,
-    RiskAnalysisChecker,
-)
 from cli.models import AnalystType
 from cli.utils import *
 
@@ -40,33 +33,9 @@ console = Console()
 
 app = typer.Typer(
     name="TradingAgents",
-    help="TradingAgents CLI: Multi-Agents LLM Financial Trading Framework with ArbiterOS Governance",
+    help="TradingAgents CLI: Multi-Agents LLM Financial Trading Framework",
     add_completion=True,  # Enable shell completion
 )
-
-# Default checkpoint path
-DEFAULT_CHECKPOINT_PATH = "./checkpoints/trading.db"
-
-
-def setup_governance_policies() -> None:
-    """Configure ArbiterOS policies for trading governance."""
-    arbiter_os = get_arbiter_os()
-
-    # Add policy checkers
-    arbiter_os.add_policy_checker(
-        AnalystCompletionChecker(
-            name="analyst_completion",
-            required_analysts={"market", "social", "news", "fundamentals"},
-        )
-    )
-
-    arbiter_os.add_policy_checker(
-        DebateRoundsChecker(name="minimum_debate", min_rounds=1)
-    )
-
-    arbiter_os.add_policy_checker(
-        RiskAnalysisChecker(name="risk_verification", min_risk_assessments=3)
-    )
 
 
 # Create a deque to store recent messages with a maximum length
@@ -515,26 +484,6 @@ def get_user_selections():
     selected_shallow_thinker = select_shallow_thinking_agent(selected_llm_provider)
     selected_deep_thinker = select_deep_thinking_agent(selected_llm_provider)
 
-    # Step 7: Checkpoint options
-    console.print(
-        create_question_box(
-            "Step 7: Checkpoint Management",
-            "Configure workflow state persistence",
-            "New execution (no resume)",
-        )
-    )
-    use_checkpoint = typer.confirm("Enable checkpointing for state persistence?", default=True)
-    thread_id = None
-    resume = False
-    
-    if use_checkpoint:
-        resume = typer.confirm("Resume from existing checkpoint?", default=False)
-        if resume:
-            thread_id = typer.prompt("Enter thread ID to resume from")
-        else:
-            thread_id = str(uuid.uuid4())
-            console.print(f"[green]Generated new thread ID:[/green] {thread_id}")
-
     return {
         "ticker": selected_ticker,
         "analysis_date": analysis_date,
@@ -544,9 +493,6 @@ def get_user_selections():
         "backend_url": backend_url,
         "shallow_thinker": selected_shallow_thinker,
         "deep_thinker": selected_deep_thinker,
-        "use_checkpoint": use_checkpoint,
-        "thread_id": thread_id,
-        "resume": resume,
     }
 
 
@@ -793,9 +739,6 @@ def run_analysis():
     # First get all user selections
     selections = get_user_selections()
 
-    # Setup ArbiterOS governance policies
-    setup_governance_policies()
-
     # Create config with selected research depth
     config = DEFAULT_CONFIG.copy()
     config["max_debate_rounds"] = selections["research_depth"]
@@ -805,13 +748,9 @@ def run_analysis():
     config["backend_url"] = selections["backend_url"]
     config["llm_provider"] = selections["llm_provider"].lower()
 
-    # Initialize the graph with checkpointing
-    checkpoint_path = DEFAULT_CHECKPOINT_PATH if selections["use_checkpoint"] else None
+    # Initialize the graph
     graph = TradingAgentsGraph(
-        [analyst.value for analyst in selections["analysts"]],
-        config=config,
-        debug=True,
-        checkpoint_path=checkpoint_path,
+        [analyst.value for analyst in selections["analysts"]], config=config, debug=True
     )
 
     # Create result directory
@@ -1163,61 +1102,7 @@ def run_analysis():
 
 @app.command()
 def analyze():
-    """Run trading analysis with ArbiterOS governance."""
     run_analysis()
-
-
-@app.command()
-def checkpoints(
-    thread_id: str = typer.Argument(..., help="Thread ID to list checkpoints for"),
-    checkpoint_path: str = typer.Option(
-        DEFAULT_CHECKPOINT_PATH, "--path", "-p", help="Path to checkpoint database"
-    ),
-):
-    """List all checkpoints for a given thread ID."""
-    config = DEFAULT_CONFIG.copy()
-    config["quick_think_llm"] = "gpt-4o-mini"
-    config["deep_think_llm"] = "gpt-4o-mini"
-
-    graph = TradingAgentsGraph(
-        debug=False,
-        config=config,
-        checkpoint_path=checkpoint_path,
-    )
-
-    checkpoints_list = graph.list_checkpoints(thread_id)
-
-    console.print(f"\n[bold]Checkpoints for thread:[/bold] {thread_id}")
-    console.print("=" * 60)
-
-    if not checkpoints_list:
-        console.print("[yellow]No checkpoints found.[/yellow]")
-        return
-
-    table = Table(show_header=True, header_style="bold magenta")
-    table.add_column("#", style="cyan", width=4)
-    table.add_column("Checkpoint ID", style="green")
-    table.add_column("Step", style="yellow", justify="center")
-    table.add_column("Next Nodes", style="white")
-
-    for i, cp in enumerate(checkpoints_list):
-        table.add_row(
-            str(i + 1),
-            str(cp.get("checkpoint_id", "N/A"))[:20] + "...",
-            str(cp.get("step", "N/A")),
-            ", ".join(cp.get("next_nodes", [])) or "None",
-        )
-
-    console.print(table)
-
-
-@app.command()
-def history():
-    """Display ArbiterOS execution history."""
-    arbiter_os = get_arbiter_os()
-    console.print("\n[bold]ArbiterOS Execution History[/bold]")
-    console.print("=" * 60)
-    arbiter_os.history.pprint()
 
 
 if __name__ == "__main__":
