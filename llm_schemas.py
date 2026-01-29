@@ -75,7 +75,7 @@ def get_schema_for_function(func_name: str) -> type[BaseModel] | None:
 # =============================================================================
 
 class TradeDecision(str, Enum):
-    """Enum representing possible trading decisions."""
+    """Enum representing possible trade decisions."""
 
     BUY = "BUY"
     SELL = "SELL"
@@ -89,21 +89,25 @@ class RiskLevel(str, Enum):
     HIGH = "HIGH"
 
 class BullResearcherOutput(BaseModel):
-    """Schema for the output of the Bull Researcher agent, capturing bullish analysis and insights.
+    """Output schema for the Bull Researcher agent, capturing bullish analysis and recommendations.
 
     Used by: bull_node, create_bull_researcher
     """
 
-    bull_analysis: str = Field(
+    bullish_trends: List[str] = Field(
         ...,
-        description="Detailed analysis of bullish trends."
+        description="List of identified bullish trends."
     )
     confidence: Optional[float] = Field(
-        default=None,
+        ...,
+        ge=0.0,
+        le=1.0,
         description="Confidence score of the analysis (0.0-1.0)"
     )
     quality_score: Optional[float] = Field(
-        default=None,
+        ...,
+        ge=0.0,
+        le=1.0,
         description="Quality assessment of the analysis (0.0-1.0)"
     )
     risk_level: float = Field(
@@ -175,21 +179,25 @@ class BullResearcherOutput(BaseModel):
         return "\n".join(parts) if parts else str(data)
 
 class BearResearcherOutput(BaseModel):
-    """Schema for the output of the Bear Researcher agent, capturing bearish analysis and insights.
+    """Output schema for the Bear Researcher agent, capturing bearish analysis and risks.
 
     Used by: bear_node, create_bear_researcher
     """
 
-    bear_analysis: str = Field(
+    bearish_trends: List[str] = Field(
         ...,
-        description="Detailed analysis of bearish trends."
+        description="List of identified bearish trends."
     )
     confidence: Optional[float] = Field(
-        default=None,
+        ...,
+        ge=0.0,
+        le=1.0,
         description="Confidence score of the analysis (0.0-1.0)"
     )
     quality_score: Optional[float] = Field(
-        default=None,
+        ...,
+        ge=0.0,
+        le=1.0,
         description="Quality assessment of the analysis (0.0-1.0)"
     )
     risk_level: float = Field(
@@ -261,26 +269,30 @@ class BearResearcherOutput(BaseModel):
         return "\n".join(parts) if parts else str(data)
 
 class TraderDecisionOutput(BaseModel):
-    """Schema for the output of the Trader agent, capturing trading decisions and associated metadata.
+    """Output schema for the Trader agent, capturing trade decisions and associated risk.
 
     Used by: trader_node, create_trader
     """
 
     trade_decision: TradeDecision = Field(
         ...,
-        description="The trading decision made by the trader."
+        description="The trade decision made by the trader."
     )
     risk_level: Optional[RiskLevel] = Field(
-        default=None,
-        description="Assessed risk level of the trading decision."
+        ...,
+        description="Assessed risk level of the trade decision."
     )
     confidence: Optional[float] = Field(
-        default=None,
-        description="Confidence score of the trading decision (0.0-1.0)"
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Confidence in the trade decision (0.0-1.0)"
     )
     quality_score: Optional[float] = Field(
-        default=None,
-        description="Quality assessment of the trading decision (0.0-1.0)"
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Quality assessment of the trade decision (0.0-1.0)"
     )
 
     @property
@@ -347,25 +359,29 @@ class TraderDecisionOutput(BaseModel):
         return "\n".join(parts) if parts else str(data)
 
 class RiskManagerOutput(BaseModel):
-    """Schema for the output of the Risk Manager agent, capturing risk assessments and recommendations.
+    """Output schema for the Risk Manager agent, capturing risk assessments and recommendations.
 
     Used by: risk_manager_node, create_risk_manager
     """
 
     risk_assessment: str = Field(
         ...,
-        description="Detailed assessment of risks associated with trading decisions."
+        description="Detailed risk assessment report."
     )
     risk_level: Optional[RiskLevel] = Field(
-        default=None,
-        description="Assessed risk level of the trading decision."
+        ...,
+        description="Assessed risk level of the situation."
     )
     confidence: Optional[float] = Field(
-        default=None,
-        description="Confidence score of the risk assessment (0.0-1.0)"
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Confidence in the risk assessment (0.0-1.0)"
     )
     quality_score: Optional[float] = Field(
-        default=None,
+        ...,
+        ge=0.0,
+        le=1.0,
         description="Quality assessment of the risk analysis (0.0-1.0)"
     )
 
@@ -433,15 +449,11 @@ class RiskManagerOutput(BaseModel):
         return "\n".join(parts) if parts else str(data)
 
 class ResearchManagerOutput(BaseModel):
-    """Schema for the output of the Research Manager agent, integrating insights from bull and bear researchers.
+    """Output schema for the Research Manager agent, summarizing research findings and recommendations.
 
     Used by: research_manager_node, create_research_manager
     """
 
-    recommendation: TradeDecision = Field(
-        ...,
-        description="Decisive stance (BUY/SELL/HOLD)."
-    )
     summary_bull: str = Field(
         ...,
         description="Summary of bull-side points."
@@ -450,20 +462,20 @@ class ResearchManagerOutput(BaseModel):
         ...,
         description="Summary of bear-side points."
     )
-    rationale: str = Field(
+    recommendation: TradeDecision = Field(
         ...,
-        description="Explanation for the recommendation."
-    )
-    strategic_actions: List[str] = Field(
-        default=list(),
-        description="Steps to implement."
+        description="Decisive stance (BUY/SELL/HOLD)."
     )
     confidence: Optional[float] = Field(
-        default=None,
+        ...,
+        ge=0.0,
+        le=1.0,
         description="Confidence in this recommendation (0.0-1.0)"
     )
     quality_score: Optional[float] = Field(
-        default=None,
+        ...,
+        ge=0.0,
+        le=1.0,
         description="Quality assessment of the analysis (0.0-1.0)"
     )
     risk_level: float = Field(

@@ -135,7 +135,7 @@ class LowConfidenceRouter(PolicyRouter, SafeRouterMixin):
 
 
     def route_after(self, history: History) -> Optional[str]:
-        """This router checks the output confidence level. If it is below the threshold, it routes the execution to the specified retry node.
+        """This router checks the confidence level in the output state. If it is below the threshold, it routes the execution to the specified retry node.
 
         Trigger condition: output_state['confidence'] < threshold
 
@@ -209,7 +209,7 @@ class LowConfidenceRouter(PolicyRouter, SafeRouterMixin):
 
 @dataclass
 class HighRiskRouter(PolicyRouter, SafeRouterMixin):
-    """Routes execution to a safer path if the risk level of the output exceeds a specified threshold.
+    """Escalates execution to a safer node if the risk level is above a specified threshold.
 
     This router enforces safety by dynamically redirecting workflow execution
     when trigger conditions are met. Includes fallback mechanisms for
@@ -233,7 +233,7 @@ class HighRiskRouter(PolicyRouter, SafeRouterMixin):
 
 
     def route_after(self, history: History) -> Optional[str]:
-        """This router checks the risk level in the output state. If it exceeds the threshold, it routes to a safer node.
+        """This router checks the risk level in the output state. If it exceeds the threshold, it routes the execution to a safer path.
 
         Trigger condition: output_state['risk_level'] > threshold
 
@@ -331,7 +331,7 @@ class HumanEscalationRouter(PolicyRouter, SafeRouterMixin):
 
 
     def route_after(self, history: History) -> Optional[str]:
-        """This router checks both the confidence and risk levels. If confidence is below the confidence_threshold or risk is above the risk_threshold, it routes to human review.
+        """This router checks both the confidence and risk levels. If the confidence is below the confidence_threshold or the risk is above the risk_threshold, it routes to human review.
 
         Trigger condition: output_state['confidence'] < confidence_threshold or output_state['risk_level'] > risk_threshold
 

@@ -3,10 +3,9 @@ name = "tradingagents"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 dependencies = [
     "akshare>=1.16.98",
-    "arbiteros-alpha @ file:///Users/changranxu/Downloads/Proceeding/arbiteros/ArbiterOS-Alpha",
     "backtrader>=1.9.78.123",
     "chainlit>=2.5.5",
     "chromadb>=1.0.12",

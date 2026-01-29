@@ -7,14 +7,14 @@ import pandas as pd
 from functools import wraps
 
 from .utils import save_output, SavePathType, decorate_all_methods
-from tradingagents.agents.governed_agents import govern_ticker_initializer
+from tradingagents.agents.governed_agents import govern_ticker
 
 
 def init_ticker(func: Callable) -> Callable:
     """Decorator to initialize yf.Ticker and pass it to the function."""
 
     @wraps(func)
-    @govern_ticker_initializer
+    @govern_ticker
     def wrapper(symbol: Annotated[str, "ticker symbol"], *args, **kwargs) -> Any:
         ticker = yf.Ticker(symbol)
         return func(ticker, *args, **kwargs)

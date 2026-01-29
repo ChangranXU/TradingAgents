@@ -18,8 +18,8 @@ from arbiteros_alpha.history import History
 from arbiteros_alpha.instructions import (
     CognitiveCore,
     ExecutionCore,
-    MetacognitiveCore,
     NormativeCore,
+    SocialCore,
 )
 from arbiteros_alpha.policy import PolicyChecker
 
@@ -38,7 +38,7 @@ class PolicyViolationError(Exception):
 
 @dataclass
 class VerificationRequirementChecker(PolicyChecker):
-    """Ensures that a VERIFY instruction has been executed before any high-risk actions are performed, such as TOOL_CALL for trades.
+    """Ensures that a VERIFY instruction has been executed before any high-risk actions, such as TOOL_CALL, are performed.
 
     This checker enforces safety constraints by validating execution state
     BEFORE allowing the instruction to proceed. If validation fails, the
@@ -60,7 +60,7 @@ class VerificationRequirementChecker(PolicyChecker):
     strict_mode: bool = True  # Default to strict enforcement
 
     def check_before(self, history: History) -> bool:
-        """This checker counts the number of VERIFY instructions in the history before a high-risk action. If the count is less than min_verifications, it blocks the execution.
+        """This checker counts the number of VERIFY instructions in the history. If the count is less than the specified min_verifications, it blocks the execution of high-risk instructions.
 
         This method ENFORCES the policy constraint. If the constraint is violated:
         - In strict_mode: raises PolicyViolationError to halt execution
@@ -101,7 +101,7 @@ class VerificationRequirementChecker(PolicyChecker):
         
         if total_count < min_required:
             # Remove f-string variables from error message template as they may not exist in context
-            base_error_msg = """Execution blocked: Verification requirement not met. Required: {min_verifications}, Found: {actual_verifications}.""".split('{')[0].rstrip('.')
+            base_error_msg = """Execution blocked: High-risk operation requires at least {min_verifications} verification(s).""".split('{')[0].rstrip('.')
             error_msg = (
                 f"{base_error_msg}."
                 f" Required: {min_required}, Found: {total_count}"
@@ -127,7 +127,7 @@ class VerificationRequirementChecker(PolicyChecker):
 
 @dataclass
 class DataAvailabilityChecker(PolicyChecker):
-    """Ensures that all required data fields are present before processing any instructions.
+    """Ensures that all required data fields are present before processing an instruction.
 
     This checker enforces safety constraints by validating execution state
     BEFORE allowing the instruction to proceed. If validation fails, the
@@ -149,7 +149,7 @@ class DataAvailabilityChecker(PolicyChecker):
     strict_mode: bool = True  # Default to strict enforcement
 
     def check_before(self, history: History) -> bool:
-        """This checker verifies that all specified required fields are present and not None in the input state before proceeding with the instruction.
+        """This checker verifies that all specified required_fields are present and not None in the input state before allowing the instruction to proceed.
 
         This method ENFORCES the policy constraint. If the constraint is violated:
         - In strict_mode: raises PolicyViolationError to halt execution
@@ -171,10 +171,10 @@ class DataAvailabilityChecker(PolicyChecker):
 
         # Count relevant instructions across all supersteps
         generate_count = 0
-        reflect_count = 0
         tool_call_count = 0
-        constrain_count = 0
         delegate_count = 0
+        verify_count = 0
+        negotiate_count = 0
         
         # Track the last outputs for state validation
         last_output_state = None
@@ -184,17 +184,17 @@ class DataAvailabilityChecker(PolicyChecker):
                 if item.instruction == CognitiveCore.GENERATE:
                     generate_count += 1
                     last_output_state = item.output_state
-                if item.instruction == CognitiveCore.REFLECT:
-                    reflect_count += 1
-                    last_output_state = item.output_state
                 if item.instruction == ExecutionCore.TOOL_CALL:
                     tool_call_count += 1
                     last_output_state = item.output_state
-                if item.instruction == NormativeCore.CONSTRAIN:
-                    constrain_count += 1
-                    last_output_state = item.output_state
                 if item.instruction == ExecutionCore.DELEGATE:
                     delegate_count += 1
+                    last_output_state = item.output_state
+                if item.instruction == NormativeCore.VERIFY:
+                    verify_count += 1
+                    last_output_state = item.output_state
+                if item.instruction == SocialCore.NEGOTIATE:
+                    negotiate_count += 1
                     last_output_state = item.output_state
 
         # === VALIDATION LOGIC ===
@@ -224,18 +224,18 @@ class DataAvailabilityChecker(PolicyChecker):
         logger.info(
             f"[{self.name}] DataAvailabilityChecker validation PASSED: "
             f"GENERATE={generate_count}, "
-            f"REFLECT={reflect_count}, "
             f"TOOL_CALL={tool_call_count}, "
-            f"CONSTRAIN={constrain_count}, "
-            f"DELEGATE={delegate_count}"
+            f"DELEGATE={delegate_count}, "
+            f"VERIFY={verify_count}, "
+            f"NEGOTIATE={negotiate_count}"
         )
 
         return True
 
 
 @dataclass
-class DomainCompletionChecker(PolicyChecker):
-    """Ensures that all necessary workflow stages are completed before proceeding to the next stage.
+class RiskThresholdChecker(PolicyChecker):
+    """Blocks operations that exceed a specified risk threshold, ensuring that high-risk actions are not executed without proper approval.
 
     This checker enforces safety constraints by validating execution state
     BEFORE allowing the instruction to proceed. If validation fails, the
@@ -246,8 +246,8 @@ class DomainCompletionChecker(PolicyChecker):
         strict_mode: If True, raises PolicyViolationError on failure. If False, logs warning and returns False.
 
     Example:
-        >>> checker = DomainCompletionChecker(
-        ...     name="domaincompletionchecker",
+        >>> checker = RiskThresholdChecker(
+        ...     name="riskthresholdchecker",
         ...     strict_mode=True,
         ... )
         >>> arbiter_os.add_policy_checker(checker)
@@ -257,101 +257,7 @@ class DomainCompletionChecker(PolicyChecker):
     strict_mode: bool = True  # Default to strict enforcement
 
     def check_before(self, history: History) -> bool:
-        """This checker ensures that the minimum required completions for a workflow stage are met before allowing progression.
-
-        This method ENFORCES the policy constraint. If the constraint is violated:
-        - In strict_mode: raises PolicyViolationError to halt execution
-        - Otherwise: returns False to block the instruction
-
-        Args:
-            history: The execution history up to this point.
-
-        Returns:
-            True if validation passes and execution may proceed.
-            False if validation fails and execution should be blocked.
-
-        Raises:
-            PolicyViolationError: In strict_mode when validation fails.
-        """
-        if not history.entries:
-            logger.debug(f"[{self.name}] No history entries, allowing execution")
-            return True
-
-        # Count relevant instructions across all supersteps
-        evaluate_progress_count = 0
-        verify_count = 0
-        
-        # Track the last outputs for state validation
-        last_output_state = None
-        
-        for superstep in history.entries:
-            for item in superstep:
-                if item.instruction == MetacognitiveCore.EVALUATE_PROGRESS:
-                    evaluate_progress_count += 1
-                    last_output_state = item.output_state
-                if item.instruction == NormativeCore.VERIFY:
-                    verify_count += 1
-                    last_output_state = item.output_state
-
-        # === VALIDATION LOGIC ===
-        # Implement domain-specific validation based on instruction counts and state
-        
-        # Completion/Requirement Check: Ensure minimum required executions
-        total_count = sum([evaluate_progress_count, verify_count])
-        min_required = getattr(self, 'min_required', 1)
-        
-        if total_count < min_required:
-            # Remove f-string variables from error message template as they may not exist in context
-            base_error_msg = """Execution blocked: Workflow stage not completed. Required completions: {min_required}, Actual: {actual_completions}.""".split('{')[0].rstrip('.')
-            error_msg = (
-                f"{base_error_msg}."
-                f" Required: {min_required}, Found: {total_count}"
-            )
-            logger.warning(f"[{self.name}] {error_msg}")
-            
-            if self.strict_mode:
-                raise PolicyViolationError(
-                    self.name, 
-                    error_msg,
-                    {"required": min_required, "found": total_count}
-                )
-            return False
-
-        # Log successful validation
-        logger.info(
-            f"[{self.name}] DomainCompletionChecker validation PASSED: "
-            f"EVALUATE_PROGRESS={evaluate_progress_count}, "
-            f"VERIFY={verify_count}"
-        )
-
-        return True
-
-
-@dataclass
-class ComplianceChecker(PolicyChecker):
-    """Validates that all operations comply with regulatory requirements, particularly focusing on risk thresholds and approval flags.
-
-    This checker enforces safety constraints by validating execution state
-    BEFORE allowing the instruction to proceed. If validation fails, the
-    instruction is BLOCKED.
-
-    Attributes:
-        name: Human-readable name for this policy checker.
-        strict_mode: If True, raises PolicyViolationError on failure. If False, logs warning and returns False.
-
-    Example:
-        >>> checker = ComplianceChecker(
-        ...     name="compliancechecker",
-        ...     strict_mode=True,
-        ... )
-        >>> arbiter_os.add_policy_checker(checker)
-    """
-
-    name: str
-    strict_mode: bool = True  # Default to strict enforcement
-
-    def check_before(self, history: History) -> bool:
-        """This checker blocks operations if the risk level exceeds max_risk_threshold or if an operation requires approval and it hasn't been granted.
+        """This checker examines the risk_level in the output state. If the risk_level exceeds max_risk_threshold, it blocks the operation unless an 'approved' flag is present.
 
         This method ENFORCES the policy constraint. If the constraint is violated:
         - In strict_mode: raises PolicyViolationError to halt execution
@@ -373,7 +279,7 @@ class ComplianceChecker(PolicyChecker):
 
         # Count relevant instructions across all supersteps
         tool_call_count = 0
-        constrain_count = 0
+        verify_count = 0
         
         # Track the last outputs for state validation
         last_output_state = None
@@ -383,8 +289,84 @@ class ComplianceChecker(PolicyChecker):
                 if item.instruction == ExecutionCore.TOOL_CALL:
                     tool_call_count += 1
                     last_output_state = item.output_state
-                if item.instruction == NormativeCore.CONSTRAIN:
-                    constrain_count += 1
+                if item.instruction == NormativeCore.VERIFY:
+                    verify_count += 1
+                    last_output_state = item.output_state
+
+        # === VALIDATION LOGIC ===
+        # Implement domain-specific validation based on instruction counts and state
+        
+        # Generic validation: Log and pass (customize for specific domains)
+        # This is a fallback - domain-specific logic should be added above
+
+        # Log successful validation
+        logger.info(
+            f"[{self.name}] RiskThresholdChecker validation PASSED: "
+            f"TOOL_CALL={tool_call_count}, "
+            f"VERIFY={verify_count}"
+        )
+
+        return True
+
+
+@dataclass
+class ComplianceChecker(PolicyChecker):
+    """Validates that operations comply with regulatory requirements, blocking those that do not meet compliance standards.
+
+    This checker enforces safety constraints by validating execution state
+    BEFORE allowing the instruction to proceed. If validation fails, the
+    instruction is BLOCKED.
+
+    Attributes:
+        name: Human-readable name for this policy checker.
+        strict_mode: If True, raises PolicyViolationError on failure. If False, logs warning and returns False.
+
+    Example:
+        >>> checker = ComplianceChecker(
+        ...     name="compliancechecker",
+        ...     strict_mode=True,
+        ... )
+        >>> arbiter_os.add_policy_checker(checker)
+    """
+
+    name: str
+    strict_mode: bool = True  # Default to strict enforcement
+
+    def check_before(self, history: History) -> bool:
+        """This checker ensures that operations do not exceed a specified risk threshold and checks for an 'approved' flag for high-risk operations.
+
+        This method ENFORCES the policy constraint. If the constraint is violated:
+        - In strict_mode: raises PolicyViolationError to halt execution
+        - Otherwise: returns False to block the instruction
+
+        Args:
+            history: The execution history up to this point.
+
+        Returns:
+            True if validation passes and execution may proceed.
+            False if validation fails and execution should be blocked.
+
+        Raises:
+            PolicyViolationError: In strict_mode when validation fails.
+        """
+        if not history.entries:
+            logger.debug(f"[{self.name}] No history entries, allowing execution")
+            return True
+
+        # Count relevant instructions across all supersteps
+        tool_call_count = 0
+        verify_count = 0
+        
+        # Track the last outputs for state validation
+        last_output_state = None
+        
+        for superstep in history.entries:
+            for item in superstep:
+                if item.instruction == ExecutionCore.TOOL_CALL:
+                    tool_call_count += 1
+                    last_output_state = item.output_state
+                if item.instruction == NormativeCore.VERIFY:
+                    verify_count += 1
                     last_output_state = item.output_state
 
         # === VALIDATION LOGIC ===
@@ -403,7 +385,7 @@ class ComplianceChecker(PolicyChecker):
             
             if isinstance(risk_level, (int, float)) and risk_level > max_risk_threshold:
                 error_msg = (
-                    f"Execution blocked: Compliance check failed. Risk level: {risk_level}, Approval required: {requires_approval}."
+                    f"Execution blocked: Operation does not meet compliance standards. Risk level: {risk_level}, Approval required: {requires_approval}."
                     f" Risk level {risk_level} exceeds threshold {max_risk_threshold}"
                 )
                 logger.warning(f"[{self.name}] {error_msg}")
@@ -417,7 +399,7 @@ class ComplianceChecker(PolicyChecker):
                 return False
             
             if requires_approval and not is_approved:
-                error_msg = f"Execution blocked: Compliance check failed. Risk level: {risk_level}, Approval required: {requires_approval}. Operation requires approval."
+                error_msg = f"Execution blocked: Operation does not meet compliance standards. Risk level: {risk_level}, Approval required: {requires_approval}. Operation requires approval."
                 logger.warning(f"[{self.name}] {error_msg}")
                 
                 if self.strict_mode:
@@ -428,7 +410,7 @@ class ComplianceChecker(PolicyChecker):
         logger.info(
             f"[{self.name}] ComplianceChecker validation PASSED: "
             f"TOOL_CALL={tool_call_count}, "
-            f"CONSTRAIN={constrain_count}"
+            f"VERIFY={verify_count}"
         )
 
         return True

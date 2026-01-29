@@ -13,6 +13,16 @@ from .conditional_logic import ConditionalLogic
 # Import ArbiterOS governance - call get_arbiter_os() dynamically, not at module import
 from tradingagents.agents.governed_agents import get_arbiter_os
 
+# === INSERTED BY ARBITEROS MIGRATOR: VERIFICATION IMPORTS START ===
+from verification_nodes import (
+    create_verification_router,
+    human_review_node,
+    verify_create_research_manager,
+    verify_create_trader,
+    verify_init_ticker,
+)
+# === INSERTED BY ARBITEROS MIGRATOR: VERIFICATION IMPORTS END ===
+
 
 class GraphSetup:
     """Handles the setup and configuration of the agent graph."""
@@ -111,6 +121,13 @@ class GraphSetup:
         # Create workflow
         workflow = StateGraph(AgentState)
 
+        # === INSERTED BY ARBITEROS MIGRATOR: VERIFICATION NODES START ===
+        workflow.add_node("verify_init_ticker", verify_init_ticker)
+        workflow.add_node("verify_create_research_manager", verify_create_research_manager)
+        workflow.add_node("verify_create_trader", verify_create_trader)
+        workflow.add_node("human_review", human_review_node)
+        # === INSERTED BY ARBITEROS MIGRATOR: VERIFICATION NODES END ===
+
         # Add analyst nodes to the graph
         for analyst_type, node in analyst_nodes.items():
             workflow.add_node(f"{analyst_type.capitalize()} Analyst", node)
@@ -132,7 +149,20 @@ class GraphSetup:
         # Define edges
         # Start with the first analyst
         first_analyst = selected_analysts[0]
-        workflow.add_edge(START, f"{first_analyst.capitalize()} Analyst")
+        # === INSERTED BY ARBITEROS MIGRATOR: VERIFICATION START EDGE START ===
+        workflow.add_edge(START, "verify_init_ticker")
+        workflow.add_conditional_edges(
+            "verify_init_ticker",
+            create_verification_router(
+                approved_target=f"{first_analyst.capitalize()} Analyst",
+                rejected_target="human_review",
+            ),
+            {
+                f"{first_analyst.capitalize()} Analyst": f"{first_analyst.capitalize()} Analyst",
+                "human_review": "human_review",
+            },
+        )
+        # === INSERTED BY ARBITEROS MIGRATOR: VERIFICATION START EDGE END ===
 
         # Connect analysts in sequence
         for i, analyst_type in enumerate(selected_analysts):
@@ -161,7 +191,7 @@ class GraphSetup:
             self.conditional_logic.should_continue_debate,
             {
                 "Bear Researcher": "Bear Researcher",
-                "Research Manager": "Research Manager",
+                "Research Manager": "verify_create_research_manager",
             },
         )
         workflow.add_conditional_edges(
@@ -169,10 +199,37 @@ class GraphSetup:
             self.conditional_logic.should_continue_debate,
             {
                 "Bull Researcher": "Bull Researcher",
-                "Research Manager": "Research Manager",
+                "Research Manager": "verify_create_research_manager",
             },
         )
-        workflow.add_edge("Research Manager", "Trader")
+        # === INSERTED BY ARBITEROS MIGRATOR: VERIFY RESEARCH MANAGER START ===
+        workflow.add_conditional_edges(
+            "verify_create_research_manager",
+            create_verification_router(
+                approved_target="Research Manager",
+                rejected_target="human_review",
+            ),
+            {
+                "Research Manager": "Research Manager",
+                "human_review": "human_review",
+            },
+        )
+        # === INSERTED BY ARBITEROS MIGRATOR: VERIFY RESEARCH MANAGER END ===
+
+        # === INSERTED BY ARBITEROS MIGRATOR: VERIFY TRADER START ===
+        workflow.add_edge("Research Manager", "verify_create_trader")
+        workflow.add_conditional_edges(
+            "verify_create_trader",
+            create_verification_router(
+                approved_target="Trader",
+                rejected_target="human_review",
+            ),
+            {
+                "Trader": "Trader",
+                "human_review": "human_review",
+            },
+        )
+        # === INSERTED BY ARBITEROS MIGRATOR: VERIFY TRADER END ===
         workflow.add_edge("Trader", "Risky Analyst")
         workflow.add_conditional_edges(
             "Risky Analyst",
@@ -200,6 +257,9 @@ class GraphSetup:
         )
 
         workflow.add_edge("Risk Judge", END)
+        # === INSERTED BY ARBITEROS MIGRATOR: HUMAN REVIEW TERMINATION START ===
+        workflow.add_edge("human_review", END)
+        # === INSERTED BY ARBITEROS MIGRATOR: HUMAN REVIEW TERMINATION END ===
 
         # Compile and return
         compiled_graph = workflow.compile()

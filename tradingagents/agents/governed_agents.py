@@ -15,8 +15,8 @@ from arbiteros_alpha.instructions import (
     CognitiveCore,
     ExecutionCore,
     MemoryCore,
-    MetacognitiveCore,
     NormativeCore,
+    SocialCore,
 )
 
 logger = logging.getLogger(__name__)
@@ -25,15 +25,15 @@ logger = logging.getLogger(__name__)
 arbiter_os = ArbiterOSAlpha(backend="langgraph")
 
 # Instruction type mappings for different agent roles
-TICKER_INITIALIZER_INSTRUCTION = ExecutionCore.TOOL_CALL
-METHOD_DECORATOR_INSTRUCTION = MemoryCore.STRUCTURE
-BULL_RESEARCHER_INSTRUCTION = CognitiveCore.REFLECT
-BEAR_RESEARCHER_INSTRUCTION = CognitiveCore.REFLECT
-SAFE_DEBATOR_INSTRUCTION = MetacognitiveCore.EVALUATE_PROGRESS
-NEUTRAL_DEBATOR_INSTRUCTION = MetacognitiveCore.EVALUATE_PROGRESS
-RISKY_DEBATOR_INSTRUCTION = MetacognitiveCore.EVALUATE_PROGRESS
+TICKER_INSTRUCTION = ExecutionCore.TOOL_CALL
+DECORATOR_INSTRUCTION = MemoryCore.STRUCTURE
+BULL_RESEARCHER_INSTRUCTION = CognitiveCore.GENERATE
+BEAR_RESEARCHER_INSTRUCTION = CognitiveCore.GENERATE
+SAFE_DEBATOR_INSTRUCTION = SocialCore.NEGOTIATE
+NEUTRAL_DEBATOR_INSTRUCTION = SocialCore.NEGOTIATE
+RISKY_DEBATOR_INSTRUCTION = SocialCore.NEGOTIATE
 TRADER_INSTRUCTION = ExecutionCore.TOOL_CALL
-RISK_MANAGER_INSTRUCTION = NormativeCore.CONSTRAIN
+RISK_MANAGER_INSTRUCTION = NormativeCore.VERIFY
 RESEARCH_MANAGER_INSTRUCTION = ExecutionCore.DELEGATE
 MSG_DELETE_INSTRUCTION = MemoryCore.FILTER
 MARKET_ANALYST_INSTRUCTION = CognitiveCore.GENERATE
@@ -45,8 +45,8 @@ FUNDAMENTALS_ANALYST_INSTRUCTION = CognitiveCore.GENERATE
 F = TypeVar("F", bound=Callable[..., Any])
 
 
-def govern_ticker_initializer(func: F) -> F:
-    """Decorator wrapper for ticker_initializer functions.
+def govern_ticker(func: F) -> F:
+    """Decorator wrapper for ticker functions.
 
     Applies TOOL_CALL instruction type governance to functions
     that The function 'init_ticker' is a decorator that initializes an external tool (yf.Ticker) and passes it to the function. This aligns with the TOOL_CALL instruction type, which involves executing predefined external functions..
@@ -57,14 +57,14 @@ def govern_ticker_initializer(func: F) -> F:
     Returns:
         The wrapped function with ArbiterOS governance.
     """
-    return arbiter_os.instruction(TICKER_INITIALIZER_INSTRUCTION)(func)
+    return arbiter_os.instruction(TICKER_INSTRUCTION)(func)
 
 
-def govern_method_decorator(func: F) -> F:
-    """Decorator wrapper for method_decorator functions.
+def govern_decorator(func: F) -> F:
+    """Decorator wrapper for decorator functions.
 
     Applies STRUCTURE instruction type governance to functions
-    that The 'decorate_all_methods' function applies a decorator to all methods of a class, effectively structuring the class's behavior. This aligns with the STRUCTURE instruction type, which involves transforming unstructured text into a structured format..
+    that The function 'decorate_all_methods' applies a decorator to all methods of a class, effectively structuring the class's behavior. This aligns with the STRUCTURE instruction type, which involves transforming unstructured text into a structured format..
 
     Args:
         func: The node function to wrap.
@@ -72,14 +72,14 @@ def govern_method_decorator(func: F) -> F:
     Returns:
         The wrapped function with ArbiterOS governance.
     """
-    return arbiter_os.instruction(METHOD_DECORATOR_INSTRUCTION)(func)
+    return arbiter_os.instruction(DECORATOR_INSTRUCTION)(func)
 
 
 def govern_bull_researcher(func: F) -> F:
     """Decorator wrapper for bull_researcher functions.
 
-    Applies REFLECT instruction type governance to functions
-    that The 'create_bull_researcher' function is designed to generate a bull analyst node that reflects on market data to build a strong, evidence-based case. This aligns with the REFLECT instruction type, which involves self-assessment and quality improvement..
+    Applies GENERATE instruction type governance to functions
+    that The 'create_bull_researcher' function generates a bull research node that analyzes market data to identify bullish trends and opportunities. This aligns with the GENERATE instruction type, which involves content generation and reasoning..
 
     Args:
         func: The node function to wrap.
@@ -93,8 +93,8 @@ def govern_bull_researcher(func: F) -> F:
 def govern_bear_researcher(func: F) -> F:
     """Decorator wrapper for bear_researcher functions.
 
-    Applies REFLECT instruction type governance to functions
-    that The 'create_bear_researcher' function generates a bear analyst node that reflects on market data to present a well-reasoned argument against investing. This aligns with the REFLECT instruction type, focusing on self-assessment and quality improvement..
+    Applies GENERATE instruction type governance to functions
+    that The 'create_bear_researcher' function generates a bear research node that analyzes market data to identify bearish trends and risks. This aligns with the GENERATE instruction type, which involves content generation and reasoning..
 
     Args:
         func: The node function to wrap.
@@ -108,8 +108,8 @@ def govern_bear_researcher(func: F) -> F:
 def govern_safe_debator(func: F) -> F:
     """Decorator wrapper for safe_debator functions.
 
-    Applies EVALUATE_PROGRESS instruction type governance to functions
-    that The 'create_safe_debator' function generates a node that evaluates the trader's decision from a conservative risk perspective, focusing on minimizing volatility and ensuring steady growth. This aligns with the EVALUATE_PROGRESS instruction type, which involves strategic assessment of reasoning path viability..
+    Applies NEGOTIATE instruction type governance to functions
+    that The 'create_safe_debator' function generates a node that engages in risk management discussions with a conservative approach, which involves negotiation and dialogue. This aligns with the NEGOTIATE instruction type..
 
     Args:
         func: The node function to wrap.
@@ -123,8 +123,8 @@ def govern_safe_debator(func: F) -> F:
 def govern_neutral_debator(func: F) -> F:
     """Decorator wrapper for neutral_debator functions.
 
-    Applies EVALUATE_PROGRESS instruction type governance to functions
-    that The 'create_neutral_debator' function generates a node that evaluates the trader's decision from a balanced risk perspective, weighing both potential benefits and risks. This aligns with the EVALUATE_PROGRESS instruction type, focusing on strategic assessment of reasoning path viability..
+    Applies NEGOTIATE instruction type governance to functions
+    that The 'create_neutral_debator' function generates a node that engages in risk management discussions with a neutral approach, which involves negotiation and dialogue. This aligns with the NEGOTIATE instruction type..
 
     Args:
         func: The node function to wrap.
@@ -138,8 +138,8 @@ def govern_neutral_debator(func: F) -> F:
 def govern_risky_debator(func: F) -> F:
     """Decorator wrapper for risky_debator functions.
 
-    Applies EVALUATE_PROGRESS instruction type governance to functions
-    that The 'create_risky_debator' function generates a node that evaluates the trader's decision from a high-risk perspective, emphasizing bold strategies and potential upsides. This aligns with the EVALUATE_PROGRESS instruction type, focusing on strategic assessment of reasoning path viability..
+    Applies NEGOTIATE instruction type governance to functions
+    that The 'create_risky_debator' function generates a node that engages in risk management discussions with an aggressive approach, which involves negotiation and dialogue. This aligns with the NEGOTIATE instruction type..
 
     Args:
         func: The node function to wrap.
@@ -154,7 +154,7 @@ def govern_trader(func: F) -> F:
     """Decorator wrapper for trader functions.
 
     Applies TOOL_CALL instruction type governance to functions
-    that The 'create_trader' function generates a trader node that analyzes market data and makes investment decisions, effectively executing predefined trading strategies. This aligns with the TOOL_CALL instruction type, which involves executing external functions..
+    that The 'create_trader' function generates a trader node that executes trades based on analysis and recommendations, which involves interacting with external systems or APIs. This aligns with the TOOL_CALL instruction type..
 
     Args:
         func: The node function to wrap.
@@ -168,8 +168,8 @@ def govern_trader(func: F) -> F:
 def govern_risk_manager(func: F) -> F:
     """Decorator wrapper for risk_manager functions.
 
-    Applies CONSTRAIN instruction type governance to functions
-    that The 'create_risk_manager' function generates a node that evaluates risk debates and determines the best course of action, ensuring compliance with risk management guidelines. This aligns with the CONSTRAIN instruction type, which involves policy compliance enforcement..
+    Applies VERIFY instruction type governance to functions
+    that The 'create_risk_manager' function generates a node that assesses and manages risks associated with trading decisions, ensuring correctness and compliance. This aligns with the VERIFY instruction type..
 
     Args:
         func: The node function to wrap.
@@ -184,7 +184,7 @@ def govern_research_manager(func: F) -> F:
     """Decorator wrapper for research_manager functions.
 
     Applies DELEGATE instruction type governance to functions
-    that The 'create_research_manager' function generates a node that oversees the research process and integrates findings, effectively delegating tasks to specialized agents. This aligns with the DELEGATE instruction type, which involves passing sub-tasks to specialized agents..
+    that The 'create_research_manager' function generates a node that oversees the research process, coordinating between bull and bear researchers. This involves delegating tasks, aligning with the DELEGATE instruction type..
 
     Args:
         func: The node function to wrap.
@@ -199,7 +199,7 @@ def govern_msg_delete(func: F) -> F:
     """Decorator wrapper for msg_delete functions.
 
     Applies FILTER instruction type governance to functions
-    that The 'create_msg_delete' function generates a node that clears messages and adds a placeholder, effectively filtering out unnecessary information. This aligns with the FILTER instruction type, which involves selectively pruning context to keep only relevant information..
+    that The 'create_msg_delete' function generates a node that clears messages, effectively filtering out unnecessary information. This aligns with the FILTER instruction type, which involves pruning context to keep only relevant information..
 
     Args:
         func: The node function to wrap.
@@ -214,7 +214,7 @@ def govern_market_analyst(func: F) -> F:
     """Decorator wrapper for market_analyst functions.
 
     Applies GENERATE instruction type governance to functions
-    that The 'create_market_analyst' function generates a node that analyzes financial markets and selects relevant indicators, effectively generating insights for trading strategies. This aligns with the GENERATE instruction type, which involves content generation and reasoning..
+    that The 'create_market_analyst' function generates a market analyst node that analyzes financial markets and selects relevant indicators, which involves content generation and reasoning. This aligns with the GENERATE instruction type..
 
     Args:
         func: The node function to wrap.
@@ -229,7 +229,7 @@ def govern_social_media_analyst(func: F) -> F:
     """Decorator wrapper for social_media_analyst functions.
 
     Applies GENERATE instruction type governance to functions
-    that The 'create_social_media_analyst' function generates a node that analyzes social media posts and sentiment, generating comprehensive reports for traders. This aligns with the GENERATE instruction type, which involves content generation and reasoning..
+    that The 'create_social_media_analyst' function generates a social media analyst node that analyzes social media posts and sentiment, which involves content generation and reasoning. This aligns with the GENERATE instruction type..
 
     Args:
         func: The node function to wrap.
@@ -244,7 +244,7 @@ def govern_news_analyst(func: F) -> F:
     """Decorator wrapper for news_analyst functions.
 
     Applies GENERATE instruction type governance to functions
-    that The 'create_news_analyst' function generates a node that analyzes recent news and trends, generating comprehensive reports for trading decisions. This aligns with the GENERATE instruction type, which involves content generation and reasoning..
+    that The 'create_news_analyst' function generates a news analyst node that analyzes recent news and trends, which involves content generation and reasoning. This aligns with the GENERATE instruction type..
 
     Args:
         func: The node function to wrap.
@@ -259,7 +259,7 @@ def govern_fundamentals_analyst(func: F) -> F:
     """Decorator wrapper for fundamentals_analyst functions.
 
     Applies GENERATE instruction type governance to functions
-    that The 'create_fundamentals_analyst' function generates a node that analyzes fundamental information about a company, generating detailed reports for traders. This aligns with the GENERATE instruction type, which involves content generation and reasoning..
+    that The 'create_fundamentals_analyst' function generates a fundamentals analyst node that analyzes fundamental information about a company, which involves content generation and reasoning. This aligns with the GENERATE instruction type..
 
     Args:
         func: The node function to wrap.

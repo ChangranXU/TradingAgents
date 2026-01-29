@@ -18,9 +18,9 @@ checkers:
     type: DataAvailabilityChecker
     enabled: true
 
-  # DomainCompletionChecker
-  - name: DomainCompletionChecker
-    type: DomainCompletionChecker
+  # RiskThresholdChecker
+  - name: RiskThresholdChecker
+    type: RiskThresholdChecker
     enabled: true
 
   # ComplianceChecker
